@@ -102,5 +102,9 @@ class ToolExecutor:
             FreeCAD.ActiveDocument.commitTransaction()
             return result
         except Exception as exc:
-            FreeCAD.ActiveDocument.abortTransaction()
+            try:
+                if FreeCAD.ActiveDocument:
+                    FreeCAD.ActiveDocument.abortTransaction()
+            except Exception:
+                pass  # document was closed during handler — transaction already gone
             return {"error": "execution", "message": str(exc)}

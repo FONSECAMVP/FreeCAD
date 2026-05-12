@@ -1,5 +1,6 @@
 """
 Tests for tool executor — REQ-004, REQ-020, REQ-023, REQ-024, REQ-025, REQ-027.
+A4-BLOCK-1: document closed during handler must not crash (abortTransaction guard).
 """
 
 import pytest
@@ -161,3 +162,22 @@ def test_dispatch_activates_workbench(mock_fc, registry):
     ex = ToolExecutor(registry)
     ex.dispatch("create_box", {"length": 10, "width": 10, "height": 5})
     FreeCADGui.activateWorkbench.assert_called_with("PartWorkbench")
+
+
+# A4-BLOCK-1: document closed mid-handler — abortTransaction must not raise
+def test_dispatch_document_closed_during_handler(mock_fc, registry):
+    """A4-BLOCK-1: if ActiveDocument becomes None during handler execution,
+    abortTransaction guard must prevent AttributeError (no crash in Qt slot)."""
+    import FreeCAD
+
+    from freecad_ai.executor import ToolExecutor
+
+    def handler_that_closes_doc(args):
+        FreeCAD.ActiveDocument = None  # simulate doc closed mid-handler
+        raise RuntimeError("doc closed")
+
+    registry.register("doc_close_tool", BOX_SCHEMA, handler_that_closes_doc, workbench="Part")
+    ex = ToolExecutor(registry)
+    result = ex.dispatch("doc_close_tool", {"length": 10, "width": 10, "height": 5})
+    assert result["error"] == "execution"
+    assert "doc closed" in result["message"]

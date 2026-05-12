@@ -1,6 +1,6 @@
 # Traceability Matrix
 
-_Updated: 2026-05-12 — Phase 3.3. 141 tests passing. NFR timing tests added. CI workflow created._
+_Updated: 2026-05-12 — Phase 3.5. 142 tests passing. A4-BLOCK-1 fixed. DEC-011 accepted._
 
 | REQ | DEC | DES | TEST file | COMMIT |
 |-----|-----|-----|-----------|--------|
@@ -32,3 +32,5 @@ _Updated: 2026-05-12 — Phase 3.3. 141 tests passing. NFR timing tests added. C
 | A3 hardening (cross-cutting) | DEC-002, DEC-003 | DES-001, DES-003 | test_a3_hardening.py | — |
 | REQ-NFR-001 (non-blocking LLM call) | DEC-005 | DES-005 | test_nfr.py (structural; latency=manual) | — |
 | REQ-NFR-002 (tool exec ≤2s) | DEC-002 | DES-001 | test_nfr.py | — |
+| REQ-NFR-005 (exception rollback) | DEC-002 | DES-001 | test_executor.py (incl. A4-BLOCK-1 fix) | — |
+| DEC-011 (rollout strategy) | DEC-001 | — | — | — |

@@ -115,3 +115,24 @@
 - **Rationale:** Automatic gate on every commit; prevents bad history; zero manual discipline required.
 - **Reversibility:** High.
 - **Dependents:** .pre-commit-config.yaml
+
+---
+
+## DEC-011 — Rollout Strategy
+
+- **Date:** 2026-05-12 | **Status:** accepted
+- **Question:** How does AI Addon v0.1 reach end users?
+- **Alternatives:** (A) merge to FreeCAD upstream main, (B) standalone FreeCAD Addon Manager package, (C) local personal deploy only
+- **Scores:**
+
+| Pillar | A | B | C |
+|--------|---|---|---|
+| Reliability | 2 | 4 | 5 |
+| Scalability | 5 | 4 | 1 |
+| Maintainability | 2 | 4 | 5 |
+| Best Practices | 3 | 5 | 4 |
+
+- **Choice:** B — standalone FreeCAD Addon Manager package in separate GitHub repo
+- **Rationale:** Correct FreeCAD pattern for experimental addons (how SheetMetal, A2plus, AutoFEM launched). Independent release cycle; opt-in install; low blast radius; rollback = uninstall. Upstream merge (A) premature for v0.1 without community validation.
+- **Reversibility:** Medium — moving from B to A later requires FreeCAD maintainer buy-in and passing their CI/review process.
+- **Dependents:** package.xml, README.md, external `FreeCAD-AI-Addon` GitHub repo

@@ -136,3 +136,33 @@
 - **Rationale:** Correct FreeCAD pattern for experimental addons (how SheetMetal, A2plus, AutoFEM launched). Independent release cycle; opt-in install; low blast radius; rollback = uninstall. Upstream merge (A) premature for v0.1 without community validation.
 - **Reversibility:** Medium — moving from B to A later requires FreeCAD maintainer buy-in and passing their CI/review process.
 - **Dependents:** package.xml, README.md, external `FreeCAD-AI-Addon` GitHub repo
+
+---
+
+## DEC-012 — Python 3.13 / openai SDK streaming compatibility
+
+- **Date:** 2026-05-12
+- **Status:** accepted
+- **Question:** How does the addon guarantee that `stream=True` parses correctly on Python 3.13, given that `openai._models._ConfigProtocol` raises `TypeError: Protocols with non-method members don't support issubclass()` inside the SDK's streaming response parser?
+- **Alternatives:**
+  - A — Pin a known-good openai SDK version (`openai>=X,<Y`)
+  - B — Drop Python 3.13 from supported runtimes (`requires-python = ">=3.10,<3.13"`)
+  - C — Vendor a tested `_compat.py` shim that replaces `openai._models._ConfigProtocol` with a plain class at import time; add a regression test that exercises the real openai SDK SSE parser
+- **Scores:**
+
+| Pillar | A | B | C |
+|--------|---|---|---|
+| Reliability | 1 | 5 | 4 |
+| Scalability | 1 | 2 | 4 |
+| Maintainability | 2 | 3 | 4 |
+| Best Practices | 2 | 2 | 3 |
+
+- **Reliability** — A scored 1 because empirical bisect showed every openai version from 1.10.0 through 2.36.0 (latest) has the same `_ConfigProtocol` class, so no version is "known-good" on Python 3.13. Pinning is a dead-end strategy here. B scored 5 — no compat surface at all. C scored 4 — narrow, monitorable surface guarded by a regression test that fails loudly on any future SDK change.
+- **Scalability** — A scored 1 (no working version exists, so the range is empty). B scored 2 (3.13 is current Python; cutting it punishes distro-default users). C scored 4 (works across the verified SDK range).
+- **Maintainability** — A: cannot ship at all. B: simple but cuts a Python version. C: small isolated module + a regression test that pins the contract.
+- **Best Practices** — A would be best practice if a working pin existed. C ships a private-module monkeypatch — a smell — but contained and tested, so 3.
+- **Choice:** C — `freecad_ai/_compat.py` runs at package import time, replacing `openai._models._ConfigProtocol` with a plain class exposing the same attribute. Imported from `freecad_ai/__init__.py` immediately after `import openai`. Regression test in `tests/test_llm_client.py::test_streaming_through_real_sdk_parser` exercises the real openai SSE parser via `httpx.MockTransport`; this test would fail loudly if the SDK upgrade removes/renames `_ConfigProtocol` or breaks streaming parse on the current Python version.
+- **Rationale:** This CLV-005 cascade refresh produced two contradictory smoke results: (a) `isinstance(X(), _ConfigProtocol)` succeeded in isolation on openai 2.36.0 + Python 3.13.5, suggesting no bug; (b) the same code run inside the full test suite raised the documented TypeError. Investigation traced this to Python's ABC cache: when the negative-instance cache is cold, `isinstance` falls through to `__subclasscheck__`, which raises on Protocols with non-method members. The bug is **real and present on every supported openai version**, just not deterministic from one isolated probe. Earlier provisional Option A in this DEC was based on the misleading isolated probe; replaced with C after CI-style suite run reproduced the crash.
+- **Reversibility:** High — `_compat.py` is one module, ~30 lines, gated by a Python version check; remove the import line in `__init__.py` to disable.
+- **Dependents:** `freecad_ai/_compat.py`, `freecad_ai/__init__.py` (import line), `tests/test_llm_client.py::test_streaming_through_real_sdk_parser`
+- **Supersedes:** in-source monkeypatch removed from `llm_client.py`; `stream=False` switch in `llm_client.py` reverted. DEC-004 (openai SDK + streaming) unchanged.

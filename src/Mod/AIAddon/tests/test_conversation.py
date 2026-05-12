@@ -66,3 +66,25 @@ def test_clear_resets_to_system_only(history):
     msgs = history.messages()
     assert len(msgs) == 1
     assert msgs[0]["role"] == "system"
+
+
+# Regression: OpenAI API rejects role=assistant + content=null + no tool_calls
+# with `'content' must be string`. messages() must coerce None -> "" in that case.
+def test_assistant_null_content_without_tool_calls_coerced_to_empty_string(history):
+    history.add_assistant(None, tool_calls=None)
+    msgs = history.messages()
+    assistant_msg = msgs[-1]
+    assert assistant_msg["role"] == "assistant"
+    assert assistant_msg["content"] == ""
+    assert "tool_calls" not in assistant_msg
+
+
+def test_assistant_null_content_with_tool_calls_kept_as_none(history):
+    """When tool_calls is present, content=None is valid per OpenAI API; preserve it."""
+    tc = [{"id": "tc1", "type": "function", "function": {"name": "f", "arguments": "{}"}}]
+    history.add_assistant(None, tool_calls=tc)
+    msgs = history.messages()
+    assistant_msg = msgs[-1]
+    assert assistant_msg["role"] == "assistant"
+    assert assistant_msg["content"] is None
+    assert assistant_msg["tool_calls"] == tc

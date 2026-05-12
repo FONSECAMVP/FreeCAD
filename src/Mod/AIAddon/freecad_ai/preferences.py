@@ -125,3 +125,73 @@ class AIPreferences:
     @property
     def is_configured(self) -> bool:
         return self.api_key is not None
+
+
+class AIPreferencePage:
+    """
+    REQ-001, DEC-006, DES-006 — FreeCAD preferences page widget.
+    Edit > Preferences > AI Addon. Instantiated by FreeCAD when the prefs
+    dialog opens; FreeCAD calls saveSettings() / loadSettings() on the
+    returned widget. `__new__` returns the actual QWidget directly so
+    FreeCAD's PrefsManager can add it to the page stack.
+    """
+
+    def __new__(cls):
+        try:
+            from PySide2.QtWidgets import (
+                QFormLayout,
+                QLabel,
+                QLineEdit,
+                QSpinBox,
+                QWidget,
+            )
+        except ImportError:
+            from PySide6.QtWidgets import (  # type: ignore[no-redef]
+                QFormLayout,
+                QLabel,
+                QLineEdit,
+                QSpinBox,
+                QWidget,
+            )
+
+        class _Page(QWidget):
+            def __init__(self):
+                super().__init__()
+                self._prefs = AIPreferences()
+                layout = QFormLayout(self)
+
+                self._base_url = QLineEdit()
+                self._base_url.setPlaceholderText("http://localhost:11434/v1")
+                layout.addRow(QLabel("API base URL:"), self._base_url)
+
+                self._model = QLineEdit()
+                self._model.setPlaceholderText("gpt-4o")
+                layout.addRow(QLabel("Model name:"), self._model)
+
+                self._api_key = QLineEdit()
+                self._api_key.setPlaceholderText("sk-… (stored in OS keychain)")
+                self._api_key.setEchoMode(QLineEdit.Password)
+                layout.addRow(QLabel("API key:"), self._api_key)
+
+                self._max_tokens = QSpinBox()
+                self._max_tokens.setRange(1000, 128000)
+                self._max_tokens.setSingleStep(1000)
+                layout.addRow(QLabel("Max context tokens:"), self._max_tokens)
+
+                self.loadSettings()
+
+            def loadSettings(self):
+                self._base_url.setText(self._prefs.base_url)
+                self._model.setText(self._prefs.model)
+                self._api_key.setText(self._prefs.api_key or "")
+                self._max_tokens.setValue(self._prefs.max_tokens)
+
+            def saveSettings(self):
+                self._prefs.base_url = self._base_url.text().strip()
+                self._prefs.model = self._model.text().strip()
+                key = self._api_key.text().strip()
+                if key:
+                    self._prefs.api_key = key
+                self._prefs.max_tokens = self._max_tokens.value()
+
+        return _Page()

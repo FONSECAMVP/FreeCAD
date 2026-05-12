@@ -4,6 +4,9 @@ _MISSING: list[str] = []
 
 try:
     import openai  # noqa: F401
+
+    # DEC-012: must run after openai import, before any openai response is parsed
+    from . import _compat  # noqa: F401
 except ImportError:
     _MISSING.append("openai")
 

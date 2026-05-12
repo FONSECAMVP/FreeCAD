@@ -7,7 +7,7 @@ name = "freecad-ai-addon"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "openai>=1.30",
+    "openai>=1.30",  # all 1.x and 2.x versions trigger Python 3.13 Protocol-isinstance bug; mitigated by freecad_ai/_compat.py (DEC-012)
     "keyring>=24",
 ]
 

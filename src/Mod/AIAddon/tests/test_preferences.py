@@ -103,3 +103,62 @@ def test_is_configured_false_when_no_key(prefs):
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("FC_AI_API_KEY", None)
             assert prefs.is_configured is False
+
+
+# --- AIPreferencePage Qt widget (REQ-001 — FreeCAD preferences dialog entry) ---
+
+
+@pytest.fixture()
+def qapp():
+    """Module-wide QApplication for headless Qt widget tests (offscreen platform)."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        from PySide2.QtWidgets import QApplication
+    except ImportError:
+        pytest.skip("PySide2 not available")
+    app = QApplication.instance() or QApplication([])
+    yield app
+
+
+def test_preference_page_constructs_and_loads_settings(qapp):
+    from freecad_ai.preferences import AIPreferencePage
+
+    with patch("freecad_ai.preferences.keyring") as mock_kr:
+        mock_kr.get_password.return_value = "sk-loaded"
+        page = AIPreferencePage()
+        # _Page reads from a fresh AIPreferences in its __init__
+        assert page._base_url.text() == "http://localhost:11434/v1"
+        assert page._model.text() == "gpt-4o"
+        assert page._api_key.text() == "sk-loaded"
+        assert page._max_tokens.value() == 8000
+
+
+def test_preference_page_save_writes_back_to_prefs(qapp):
+    from freecad_ai.preferences import AIPreferencePage
+
+    with patch("freecad_ai.preferences.keyring") as mock_kr:
+        mock_kr.get_password.return_value = None
+        page = AIPreferencePage()
+        page._base_url.setText("https://api.openai.com/v1")
+        page._model.setText("gpt-4o-mini")
+        page._api_key.setText("sk-new")
+        page._max_tokens.setValue(16000)
+
+        page.saveSettings()
+
+        assert page._prefs.base_url == "https://api.openai.com/v1"
+        assert page._prefs.model == "gpt-4o-mini"
+        assert page._prefs.max_tokens == 16000
+        mock_kr.set_password.assert_called_with("freecad-ai", "api_key", "sk-new")
+
+
+def test_preference_page_save_skips_empty_api_key(qapp):
+    """Blank api_key field must not overwrite a stored key (prevents accidental wipe)."""
+    from freecad_ai.preferences import AIPreferencePage
+
+    with patch("freecad_ai.preferences.keyring") as mock_kr:
+        mock_kr.get_password.return_value = "sk-existing"
+        page = AIPreferencePage()
+        page._api_key.setText("")  # user blanked the field
+        page.saveSettings()
+        mock_kr.set_password.assert_not_called()

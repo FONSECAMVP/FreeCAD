@@ -12,7 +12,7 @@ else:
     from freecad_ai.conversation import ConversationHistory
     from freecad_ai.executor import ToolExecutor
     from freecad_ai.llm_client import SYSTEM_PROMPT, LLMClient
-    from freecad_ai.preferences import AIPreferences
+    from freecad_ai.preferences import AIPreferencePage, AIPreferences
     from freecad_ai.registry import ToolRegistry
 
     # Build registry with all workbench plugins (REQ-003, REQ-019)
@@ -43,6 +43,11 @@ else:
 
     # Register chat panel (REQ-002) — deferred import to keep Qt out of headless path
     try:
+        from PySide2.QtCore import Qt
+    except ImportError:
+        from PySide6.QtCore import Qt  # type: ignore[no-redef]
+
+    try:
         from freecad_ai.panel import AIChatPanel
 
         _panel = AIChatPanel(
@@ -52,10 +57,14 @@ else:
             make_client=_make_llm_client,
             prefs=_prefs,
         )
-        FreeCADGui.getMainWindow().addDockWidget(FreeCADGui.Qt.RightDockWidgetArea, _panel)
+        FreeCADGui.getMainWindow().addDockWidget(Qt.RightDockWidgetArea, _panel)
         FreeCAD.Console.PrintMessage("[AI Addon] Chat panel ready.\n")
     except Exception as exc:
         FreeCAD.Console.PrintWarning(f"[AI Addon] Panel failed to load: {exc}\n")
+
+    # Register preferences page (REQ-001)
+    FreeCADGui.addPreferencePage(AIPreferencePage, "AI Addon")
+    FreeCAD.Console.PrintMessage("[AI Addon] Preferences page registered.\n")
 
     # Warn if not configured (A2-C1)
     if not _prefs.is_configured:

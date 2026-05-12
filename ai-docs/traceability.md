@@ -1,10 +1,10 @@
 # Traceability Matrix
 
-_Updated: 2026-05-12 — Phase 3.5. 142 tests passing. A4-BLOCK-1 fixed. DEC-011 accepted._
+_Updated: 2026-05-12 — Post Phase 3.5 cascade refresh on DEC-004 (CLV-005 → CLV-006). 148 tests passing, 4 skipped. DEC-012 accepted (Python 3.13 / openai compat shim). REQ-001 wiring completed (AIPreferencePage)._
 
 | REQ | DEC | DES | TEST file | COMMIT |
 |-----|-----|-----|-----------|--------|
-| REQ-001 (prefs panel) | DEC-006 | DES-006 | test_preferences.py | — |
+| REQ-001 (prefs panel) | DEC-006 | DES-006 | test_preferences.py (incl. AIPreferencePage Qt widget) | — |
 | REQ-002 (chat panel) | DEC-005 | DES-008 | test_panel_integration.py (skipped/manual) | — |
 | REQ-003 (tool registry) | DEC-002 | DES-001 | test_registry.py | — |
 | REQ-004 (tool executor) | DEC-002 | DES-001 | test_executor.py | — |
@@ -13,7 +13,7 @@ _Updated: 2026-05-12 — Phase 3.5. 142 tests passing. A4-BLOCK-1 fixed. DEC-011
 | REQ-007 (PartDesign tools) | DEC-002 | DES-002 | test_tools_partdesign.py | — |
 | REQ-008 (Sketcher tools) | DEC-002 | DES-002 | test_tools_sketcher.py | — |
 | REQ-009 (inspection tools) | DEC-002 | DES-002 | test_tools_inspection.py | — |
-| REQ-010 (conversation history) | DEC-003 | DES-003 | test_conversation.py | — |
+| REQ-010 (conversation history) | DEC-003 | DES-003 | test_conversation.py (incl. null-content OpenAI API contract regression) | — |
 | REQ-011 (async + loading) | DEC-004, DEC-005 | DES-004, DES-005 | test_llm_client.py, test_worker_logic.py | — |
 | REQ-012 (error display) | DEC-005 | DES-008 | test_panel_integration.py (skipped/manual) | — |
 | REQ-013 (Draft tools) | DEC-002 | DES-002 | test_tools_draft.py | — |
@@ -34,3 +34,4 @@ _Updated: 2026-05-12 — Phase 3.5. 142 tests passing. A4-BLOCK-1 fixed. DEC-011
 | REQ-NFR-002 (tool exec ≤2s) | DEC-002 | DES-001 | test_nfr.py | — |
 | REQ-NFR-005 (exception rollback) | DEC-002 | DES-001 | test_executor.py (incl. A4-BLOCK-1 fix) | — |
 | DEC-011 (rollout strategy) | DEC-001 | — | — | — |
+| DEC-012 (3.13 / openai compat) | DEC-004 | freecad_ai/_compat.py | test_llm_client.py::test_streaming_through_real_sdk_parser | — |

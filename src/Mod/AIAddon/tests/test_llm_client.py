@@ -217,3 +217,41 @@ async def test_chat_forwards_messages_and_tools(client):
     assert call_kwargs["tools"] == tools
     assert call_kwargs["model"] == "gpt-4o"
     assert call_kwargs["stream"] is True
+
+
+# DEC-012 regression: exercise the real openai SDK SSE parser end-to-end on
+# whatever Python version CI runs. Without this, the suite mocks past the SDK's
+# response-parse path and cannot catch a Protocol-isinstance regression of the
+# class that the in-source monkeypatch was trying to work around. This test
+# fails loudly if openai SDK upgrades break streaming parse on the current Python.
+@pytest.mark.asyncio
+async def test_streaming_through_real_sdk_parser():
+    import httpx
+
+    from freecad_ai.llm_client import LLMClient
+
+    sse_body = (
+        b'data: {"id":"c1","object":"chat.completion.chunk","created":0,'
+        b'"model":"m","choices":[{"index":0,"delta":{"role":"assistant",'
+        b'"content":"Hello"},"finish_reason":null}]}\n\n'
+        b'data: {"id":"c1","object":"chat.completion.chunk","created":0,'
+        b'"model":"m","choices":[{"index":0,"delta":{"content":" world"},'
+        b'"finish_reason":null}]}\n\n'
+        b"data: [DONE]\n\n"
+    )
+
+    def handler(_request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            content=sse_body,
+        )
+
+    client = LLMClient("http://fake/v1", "k", "gpt-4o")
+    client._client._client._transport = httpx.MockTransport(handler)
+
+    out: list = []
+    async for piece in client.chat(messages=[{"role": "user", "content": "hi"}], tools=[]):
+        out.append(piece)
+
+    assert out == ["Hello", " world"]

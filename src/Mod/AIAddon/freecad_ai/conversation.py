@@ -34,7 +34,18 @@ class ConversationHistory:
         self._truncate()
 
     def messages(self) -> list[dict[str, Any]]:
-        return [self._system, *self._history]
+        # REQ-010, DEC-003. OpenAI API contract: `role=assistant` + `content=null`
+        # is only valid when `tool_calls` is also present; otherwise the API
+        # rejects with "'content' must be string". Coerce None -> "" in that
+        # specific case. Regression covered by
+        # tests/test_conversation.py::test_assistant_null_content_*.
+        out = []
+        for msg in [self._system, *self._history]:
+            m = dict(msg)
+            if m.get("content") is None and "tool_calls" not in m:
+                m["content"] = ""
+            out.append(m)
+        return out
 
     def clear(self) -> None:
         self._history.clear()

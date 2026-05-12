@@ -17,8 +17,8 @@
   <maintainer email="andersoncapitalsas@gmail.com">Andy F.</maintainer>
   <license file="LICENSE">LGPL-2.1-or-later</license>
   <!-- Replace [user] with actual GitHub username before publishing -->
-  <url type="repository">https://github.com/[user]/FreeCAD-AI-Addon</url>
-  <url type="readme">https://github.com/[user]/FreeCAD-AI-Addon/blob/main/README.md</url>
+  <url type="repository">https://github.com/FONSECAMVP/FreeCAD-AI-Addon</url>
+  <url type="readme">https://github.com/FONSECAMVP/FreeCAD-AI-Addon/blob/main/README.md</url>
   <tag>LLM</tag>
   <tag>AI</tag>
   <tag>automation</tag>

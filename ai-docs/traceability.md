@@ -1,6 +1,6 @@
 # Traceability Matrix
 
-_Updated: 2026-05-12 — Phase 2 complete. 138 tests passing. A3 done. CLV-003 remediations applied._
+_Updated: 2026-05-12 — Phase 3.3. 141 tests passing. NFR timing tests added. CI workflow created._
 
 | REQ | DEC | DES | TEST file | COMMIT |
 |-----|-----|-----|-----------|--------|
@@ -30,3 +30,5 @@ _Updated: 2026-05-12 — Phase 2 complete. 138 tests passing. A3 done. CLV-003 r
 | REQ-027 (workbench activation) | DEC-002 | DES-001 | test_executor.py | — |
 | REQ-028 (dep check on load) | DEC-001 | DES-002 | test_deps.py | — |
 | A3 hardening (cross-cutting) | DEC-002, DEC-003 | DES-001, DES-003 | test_a3_hardening.py | — |
+| REQ-NFR-001 (non-blocking LLM call) | DEC-005 | DES-005 | test_nfr.py (structural; latency=manual) | — |
+| REQ-NFR-002 (tool exec ≤2s) | DEC-002 | DES-001 | test_nfr.py | — |

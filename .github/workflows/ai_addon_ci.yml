@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# CI pipeline for AI Addon (src/Mod/AIAddon)
+# Implements Phase 3.3 of the quality-gated dev workflow.
+# Runs only when AIAddon source or tests change.
+#
+# Gate order (red CI blocks merge):
+#   1. Install deps fresh (no cache — correctness gate, DEC-008)
+#   2. Ruff lint + format check (DEC-009)
+#   3. Mypy type check (DEC-009)
+#   4. Security: no exec/eval in addon source (REQ-NFR-003)
+#   5. Dependency CVE audit
+#   6. Full test suite + coverage ≥70% (DEC-008, REQ-NFR-002)
+#   7. Contract check: registry dispatch error format (DES-001)
+
+name: AI Addon CI
+
+on:
+  pull_request:
+    paths:
+      - "src/Mod/AIAddon/**"
+      - "ai-docs/**"
+  push:
+    branches:
+      - "feat/ai-addon"
+      - "main"
+    paths:
+      - "src/Mod/AIAddon/**"
+
+permissions:
+  contents: read
+
+jobs:
+  ai-addon:
+    name: AI Addon — lint, security, test, coverage
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: src/Mod/AIAddon
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          # No pip cache — correctness gate (step 1)
+
+      - name: Install dependencies fresh
+        run: pip install -e ".[dev]" --no-cache-dir
+
+      # Step 2 — ruff lint
+      - name: Ruff lint
+        run: python -m ruff check freecad_ai/
+
+      # Step 2 — ruff format
+      - name: Ruff format check
+        run: python -m ruff format --check freecad_ai/
+
+      # Step 3 — mypy
+      - name: Mypy type check
+        run: python -m mypy freecad_ai/
+
+      # Step 4 — security: no exec/eval (REQ-NFR-003)
+      - name: Security — no exec/eval in addon source
+        run: |
+          if grep -rn --include="*.py" '\bexec\s*(' freecad_ai/ \
+          || grep -rn --include="*.py" '\beval\s*(' freecad_ai/; then
+            echo "FAIL: exec() or eval() found in freecad_ai/ source"
+            exit 1
+          fi
+          echo "PASS: no exec/eval in addon source (REQ-NFR-003)"
+
+      # Step 5 — dependency CVE audit
+      - name: Install pip-audit
+        run: pip install pip-audit --no-cache-dir
+
+      - name: Dependency CVE audit
+        run: pip-audit --skip-editable
+        continue-on-error: false
+
+      # Step 6 — full test suite + coverage
+      - name: Full test suite with coverage
+        run: |
+          python -m pytest tests/ -q \
+            --cov=freecad_ai \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=70
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-addon-coverage
+          path: src/Mod/AIAddon/coverage.xml
+
+      # Step 7 — contract check: registry dispatch error format (DES-001)
+      - name: Contract check — dispatch error format
+        run: |
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, ".")
+
+          # Minimal stubs so freecad_ai imports work without FreeCAD installed
+          import types
+          from unittest.mock import MagicMock
+          for mod in ("FreeCAD", "FreeCADGui", "Part", "PartDesign", "Sketcher", "Draft", "Arch"):
+              m = types.ModuleType(mod)
+              m.Console = MagicMock()
+              sys.modules.setdefault(mod, m)
+
+          from freecad_ai.registry import ToolRegistry
+          from freecad_ai.executor import ToolExecutor
+
+          reg = ToolRegistry()
+          ex = ToolExecutor(reg)
+
+          # DES-001: unknown tool must return {"error": "unknown_tool", "name": str}
+          r = ex.dispatch("nonexistent_tool", {})
+          assert r.get("error") == "unknown_tool", f"Contract violation DES-001: {r}"
+          assert isinstance(r.get("name"), str), f"Contract violation DES-001 name field: {r}"
+
+          # DES-001: validation error must return {"error": "validation", "field": str, "reason": str}
+          schema = {
+              "type": "function",
+              "function": {
+                  "name": "t",
+                  "description": "test",
+                  "parameters": {
+                      "type": "object",
+                      "properties": {"x": {"type": "number", "description": "x"}},
+                      "required": ["x"],
+                  },
+              },
+          }
+          reg.register("t", schema, lambda a: {"ok": True}, workbench="Part")
+          r = ex.dispatch("t", {})  # missing required arg
+          assert r.get("error") == "validation", f"Contract violation DES-001 validation: {r}"
+          assert isinstance(r.get("field"), str), f"Contract violation DES-001 field: {r}"
+          assert isinstance(r.get("reason"), str), f"Contract violation DES-001 reason: {r}"
+
+          print("PASS: DES-001 dispatch contract verified")
+          EOF

@@ -1,0 +1,2 @@
+# Un-ignore pre-commit config (root .gitignore blocks all dotfiles via .*)
+!.pre-commit-config.yaml

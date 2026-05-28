@@ -27,7 +27,7 @@ repos:
       - id: fast-tests
         name: "Fast unit tests"
         language: system
-        entry: bash -c "cd src/Mod/AIAddon && python3 -m pytest -m fast --tb=short -q"
+        entry: bash -c "cd src/Mod/AIAddon && .venv/bin/python -m pytest -m fast --tb=short -q"
         pass_filenames: false
         always_run: true
         stages: [pre-commit]

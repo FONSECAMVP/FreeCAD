@@ -34,14 +34,18 @@ else:
     _prefs = AIPreferences()
     _history = ConversationHistory(system_prompt=SYSTEM_PROMPT, max_tokens=_prefs.max_tokens)
 
-    def _make_llm_client():
-        return LLMClient(
+    # Default args bind values at def time. FreeCAD's mod loader execs InitGui.py
+    # in a non-module scope, so `def` functions cannot resolve module-level names
+    # at call time (the function's __globals__ is FreeCADGuiInit, not this scope).
+    def _make_llm_client(_LLMClient=LLMClient, _prefs=_prefs):
+        return _LLMClient(
             base_url=_prefs.base_url,
             api_key=_prefs.api_key or "",
             model=_prefs.model,
         )
 
-    # Register chat panel (REQ-002) — deferred import to keep Qt out of headless path
+    # Register chat panel (REQ-002) — deferred import to keep Qt out of headless path.
+    # Use PySide2 directly: FreeCADGui.Qt does not expose Qt.RightDockWidgetArea on 1.0.
     try:
         from PySide2.QtCore import Qt
     except ImportError:
@@ -63,11 +67,38 @@ else:
         FreeCAD.Console.PrintWarning(f"[AI Addon] Panel failed to load: {exc}\n")
 
     # Register preferences page (REQ-001)
-    FreeCADGui.addPreferencePage(AIPreferencePage, "AI Addon")
-    FreeCAD.Console.PrintMessage("[AI Addon] Preferences page registered.\n")
+    try:
+        FreeCADGui.addPreferencePage(AIPreferencePage, "AI Addon")
+        FreeCAD.Console.PrintMessage("[AI Addon] Preferences page registered.\n")
+    except Exception as exc:
+        FreeCAD.Console.PrintWarning(f"[AI Addon] Preferences page registration failed: {exc!r}\n")
 
     # Warn if not configured (A2-C1)
     if not _prefs.is_configured:
         FreeCAD.Console.PrintWarning(
             "[AI Addon] API key not set. Open Edit > Preferences > AI Addon.\n"
         )
+
+    # Minimal Workbench so package.xml <workbench><classname> lookup succeeds.
+    # FreeCAD 1.0+ scans user mods via the GUI loader only when package.xml
+    # declares <content><workbench>; without this stub class and the workbench
+    # content type, InitGui.py is skipped entirely. The addon's UX lives in
+    # the chat panel + preferences page, not in workbench tools, so this
+    # class is intentionally empty.
+    class AIAddonWorkbench(FreeCADGui.Workbench):
+        MenuText = "AI Addon"
+        ToolTip = "AI chat panel with workbench tool registry"
+
+        def Initialize(self):
+            pass
+
+        def Activated(self):
+            pass
+
+        def Deactivated(self):
+            pass
+
+        def GetClassName(self):
+            return "Gui::PythonWorkbench"
+
+    FreeCADGui.addWorkbench(AIAddonWorkbench())

@@ -27,12 +27,13 @@
   <pythonmin>3.10</pythonmin>
   <freecadmin>0.21</freecadmin>
   <content>
-    <other>
+    <workbench>
       <name>AI Addon</name>
+      <classname>AIAddonWorkbench</classname>
       <description>
         Dockable AI chat panel with tool registry for all major workbenches.
       </description>
       <subdirectory>.</subdirectory>
-    </other>
+    </workbench>
   </content>
 </package>

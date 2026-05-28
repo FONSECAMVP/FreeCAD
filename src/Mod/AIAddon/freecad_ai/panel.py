@@ -63,8 +63,8 @@ _STYLE_THINKING = "color:#999;font-style:italic;"
 
 _TOOL_DETAIL_TMPL = (
     '<details style="{style}">'
-    "<summary>tool: {name}</summary>"
-    '<pre style="margin:2px 0 0 8px;">{args}</pre>'
+    "<summary>{status} tool: {name}</summary>"
+    '<pre style="margin:2px 0 0 8px;">args:\n{args}\n\nresult:\n{result}</pre>'
     "</details>"
 )
 
@@ -84,6 +84,8 @@ class AIChatPanel(QDockWidget if _QT_OK else object):  # type: ignore[misc]
         if not _QT_OK:
             raise RuntimeError("Qt not available — cannot create AIChatPanel")
         super().__init__("AI Chat", parent)
+        # objectName required for QMainWindow::saveState (Qt warning otherwise)
+        self.setObjectName("AIChatPanel")
         self._registry = registry
         self._executor = executor
         self._history = history
@@ -105,6 +107,7 @@ class AIChatPanel(QDockWidget if _QT_OK else object):  # type: ignore[misc]
 
         self._history_view = QTextBrowser()
         self._history_view.setOpenLinks(False)
+        self._history_view.setAcceptRichText(True)
         self._history_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         layout.addWidget(self._history_view)
 
@@ -217,7 +220,12 @@ class AIChatPanel(QDockWidget if _QT_OK else object):  # type: ignore[misc]
     # ------------------------------------------------------------------ HTML helpers
 
     def _append_user(self, text: str) -> None:
-        self._history_view.append(f'<p style="{_STYLE_USER}">[You] {html.escape(text)}</p>')
+        cursor = self._history_view.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertHtml(f'<p style="{_STYLE_USER}">[You] {html.escape(text)}</p>')
+        cursor.insertBlock()
+        self._history_view.setTextCursor(cursor)
+        self._history_view.ensureCursorVisible()
 
     def _append_assistant_token(self, token: str) -> None:
         cursor = self._history_view.textCursor()
@@ -228,20 +236,41 @@ class AIChatPanel(QDockWidget if _QT_OK else object):  # type: ignore[misc]
 
     def _append_tool_detail(self, name: str, args: dict, result: dict) -> None:
         args_str = html.escape(json.dumps(args, indent=2))
+        result_str = html.escape(json.dumps(result, indent=2))
+        if isinstance(result, dict) and "error" in result:
+            status = "✗"
+            style = _STYLE_TOOL + _STYLE_ERROR
+        else:
+            status = "✓"
+            style = _STYLE_TOOL
         block = _TOOL_DETAIL_TMPL.format(
-            style=_STYLE_TOOL,
+            style=style,
+            status=status,
             name=html.escape(name),
             args=args_str,
+            result=result_str,
         )
-        self._history_view.append(block)
+        cursor = self._history_view.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertHtml(block)
+        cursor.insertBlock()
+        self._history_view.setTextCursor(cursor)
+        self._history_view.ensureCursorVisible()
 
     def _append_error(self, message: str) -> None:
-        self._history_view.append(f'<p style="{_STYLE_ERROR}">⚠ {html.escape(message)}</p>')
+        cursor = self._history_view.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertHtml(f'<p style="{_STYLE_ERROR}">⚠ {html.escape(message)}</p>')
+        cursor.insertBlock()
+        self._history_view.setTextCursor(cursor)
 
     # ------------------------------------------------------------------ State
 
     def _set_busy(self, busy: bool) -> None:
+        # UI lockout only. The executor.busy flag is for external concurrent-use
+        # protection — setting it here would block the worker's own dispatches
+        # from inside this same turn (busy=True before LLM call, executor
+        # then refuses the tool call the LLM returned).
         self._send_btn.setEnabled(not busy)
         self._input.setEnabled(not busy)
         self._thinking_label.setVisible(busy)
-        self._executor.set_busy(busy)

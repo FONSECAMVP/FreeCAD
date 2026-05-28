@@ -129,14 +129,18 @@ class AIPreferences:
 
 class AIPreferencePage:
     """
-    REQ-001, DEC-006, DES-006 — FreeCAD preferences page widget.
-    Edit > Preferences > AI Addon. Instantiated by FreeCAD when the prefs
-    dialog opens; FreeCAD calls saveSettings() / loadSettings() on the
-    returned widget. `__new__` returns the actual QWidget directly so
-    FreeCAD's PrefsManager can add it to the page stack.
+    REQ-001, DEC-006, DES-006 — FreeCAD preferences page.
+
+    Standard FreeCAD prefs idiom (see AddonManager/AddonManagerOptions.py):
+    plain class with `self.form` = QWidget built in `__init__`, plus
+    saveSettings()/loadSettings() methods. FreeCAD instantiates the class
+    each time the prefs dialog opens, reads `self.form` (Gui/WidgetFactory
+    .cpp:285), then uses `form->windowTitle()` as the tab label
+    (WidgetFactory.cpp:296). `__init__` accepts an optional positional
+    arg because some FreeCAD code paths pass the parent.
     """
 
-    def __new__(cls):
+    def __init__(self, _parent=None):
         try:
             from PySide2.QtWidgets import (
                 QFormLayout,
@@ -154,44 +158,43 @@ class AIPreferencePage:
                 QWidget,
             )
 
-        class _Page(QWidget):
-            def __init__(self):
-                super().__init__()
-                self._prefs = AIPreferences()
-                layout = QFormLayout(self)
+        self._prefs = AIPreferences()
+        self.form = QWidget()
+        # Empty windowTitle makes the page invisible in DlgPreferencesImp
+        # (WidgetFactory.cpp:296 reads form->windowTitle()).
+        self.form.setWindowTitle("Settings")
+        layout = QFormLayout(self.form)
 
-                self._base_url = QLineEdit()
-                self._base_url.setPlaceholderText("http://localhost:11434/v1")
-                layout.addRow(QLabel("API base URL:"), self._base_url)
+        self._base_url = QLineEdit()
+        self._base_url.setPlaceholderText("http://localhost:11434/v1")
+        layout.addRow(QLabel("API base URL:"), self._base_url)
 
-                self._model = QLineEdit()
-                self._model.setPlaceholderText("gpt-4o")
-                layout.addRow(QLabel("Model name:"), self._model)
+        self._model = QLineEdit()
+        self._model.setPlaceholderText("gpt-4o")
+        layout.addRow(QLabel("Model name:"), self._model)
 
-                self._api_key = QLineEdit()
-                self._api_key.setPlaceholderText("sk-… (stored in OS keychain)")
-                self._api_key.setEchoMode(QLineEdit.Password)
-                layout.addRow(QLabel("API key:"), self._api_key)
+        self._api_key = QLineEdit()
+        self._api_key.setPlaceholderText("sk-… (stored in OS keychain)")
+        self._api_key.setEchoMode(QLineEdit.Password)
+        layout.addRow(QLabel("API key:"), self._api_key)
 
-                self._max_tokens = QSpinBox()
-                self._max_tokens.setRange(1000, 128000)
-                self._max_tokens.setSingleStep(1000)
-                layout.addRow(QLabel("Max context tokens:"), self._max_tokens)
+        self._max_tokens = QSpinBox()
+        self._max_tokens.setRange(1000, 128000)
+        self._max_tokens.setSingleStep(1000)
+        layout.addRow(QLabel("Max context tokens:"), self._max_tokens)
 
-                self.loadSettings()
+        self.loadSettings()
 
-            def loadSettings(self):
-                self._base_url.setText(self._prefs.base_url)
-                self._model.setText(self._prefs.model)
-                self._api_key.setText(self._prefs.api_key or "")
-                self._max_tokens.setValue(self._prefs.max_tokens)
+    def loadSettings(self):
+        self._base_url.setText(self._prefs.base_url)
+        self._model.setText(self._prefs.model)
+        self._api_key.setText(self._prefs.api_key or "")
+        self._max_tokens.setValue(self._prefs.max_tokens)
 
-            def saveSettings(self):
-                self._prefs.base_url = self._base_url.text().strip()
-                self._prefs.model = self._model.text().strip()
-                key = self._api_key.text().strip()
-                if key:
-                    self._prefs.api_key = key
-                self._prefs.max_tokens = self._max_tokens.value()
-
-        return _Page()
+    def saveSettings(self):
+        self._prefs.base_url = self._base_url.text().strip()
+        self._prefs.model = self._model.text().strip()
+        key = self._api_key.text().strip()
+        if key:
+            self._prefs.api_key = key
+        self._prefs.max_tokens = self._max_tokens.value()
